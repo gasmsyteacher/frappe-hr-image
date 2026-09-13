@@ -42,8 +42,12 @@ jobs:
 
       - name: Derive version tag from apps.json
         id: ver
+        # jq, not an inline python f-string: escaped quotes inside an f-string
+        # expression are a SyntaxError before Python 3.12, which broke the first run.
         run: |
-          tag=$(python3 -c 'import json; a={x["url"].rsplit("/",1)[-1]: x["branch"] for x in json.load(open("apps.json"))}; print(f"erpnext-{a[\"erpnext\"]}-hrms-{a[\"hrms\"]}")')
+          erpnext=$(jq -er '.[] | select(.url | endswith("/erpnext")) | .branch' apps.json)
+          hrms=$(jq -er '.[] | select(.url | endswith("/hrms")) | .branch' apps.json)
+          tag="erpnext-${erpnext}-hrms-${hrms}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version tag: $tag"
 
