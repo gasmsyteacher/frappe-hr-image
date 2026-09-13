@@ -74,8 +74,12 @@ services:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
-    entrypoint: ["bash", "-c"]
+    # No entrypoint override: the image's entrypoint symlinks the baked assets into
+    # the sites volume and then execs this command. Overriding it (as pwd.yml does)
+    # means the first-deploy one-shots run with no sites/assets at all.
     command:
+      - bash
+      - -c
       - >
         set -e;
         ls -1 apps > sites/apps.txt;
@@ -104,12 +108,15 @@ services:
     depends_on:
       configurator:
         condition: service_completed_successfully
-    entrypoint: ["bash", "-c"]
+    # No entrypoint override (see configurator): assets must be linked before
+    # `bench new-site` / `bench migrate` run their install and migrate hooks.
     # Keep each shell statement on ONE line. In a folded (>) block, lines indented
     # deeper than the first keep their line breaks, so flags wrapped onto their own
     # lines reach bash as separate commands: `bench new-site` would run with no
     # arguments and `--admin-password=...` would run as a command.
     command:
+      - bash
+      - -c
       - >
         set -e;
         wait-for-it -t 180 db:3306;
