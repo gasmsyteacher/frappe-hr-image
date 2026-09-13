@@ -240,6 +240,16 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    healthcheck:
+      # Healthy = Redis lists a live RQ worker whose hostname is this container, i.e. the
+      # worker is connected and heartbeating. RQ refreshes that record about every 7 min
+      # (worker TTL 420s), so a hung worker turns unhealthy within ~7 min; one that
+      # crashes stops the container and shows as exited at once.
+      test: ["CMD", "/home/frappe/frappe-bench/env/bin/python", "-c", "import json, socket, sys; from redis import Redis; from rq import Worker; conf = json.load(open('/home/frappe/frappe-bench/sites/common_site_config.json')); r = Redis.from_url(conf['redis_queue'], socket_timeout=5, socket_connect_timeout=5); h = socket.gethostname(); sys.exit(0 if any(w.hostname == h for w in Worker.all(connection=r)) else 1)"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
   queue-long:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
@@ -252,6 +262,16 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    healthcheck:
+      # Healthy = Redis lists a live RQ worker whose hostname is this container, i.e. the
+      # worker is connected and heartbeating. RQ refreshes that record about every 7 min
+      # (worker TTL 420s), so a hung worker turns unhealthy within ~7 min; one that
+      # crashes stops the container and shows as exited at once.
+      test: ["CMD", "/home/frappe/frappe-bench/env/bin/python", "-c", "import json, socket, sys; from redis import Redis; from rq import Worker; conf = json.load(open('/home/frappe/frappe-bench/sites/common_site_config.json')); r = Redis.from_url(conf['redis_queue'], socket_timeout=5, socket_connect_timeout=5); h = socket.gethostname(); sys.exit(0 if any(w.hostname == h for w in Worker.all(connection=r)) else 1)"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
   scheduler:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
@@ -264,6 +284,15 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    healthcheck:
+      # Healthy = a process in this container holds the scheduler's lock file open.
+      # Read-only on purpose: *taking* the lock to test it could make a starting
+      # scheduler see "already running" and exit.
+      test: ["CMD", "bash", "-c", "for f in /proc/[0-9]*/fd/*; do readlink \"$$f\"; done 2>/dev/null | grep -q '/config/scheduler_process$$'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   db-data:
