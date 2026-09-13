@@ -9,6 +9,10 @@
 #   exclude_from_hc so their normal exit does not mark the service degraded
 # - no custom networks: Coolify's own network is what Traefik can reach
 # - no `bench build` at deploy time: the image already carries built assets
+# - every container has a mem_limit: this runs beside self-hosted Sentry on a host
+#   that already had 8.8 GiB in swap, so ERPNext must be the thing that gets
+#   OOM-killed under pressure, never Sentry. Raise a cap if its container restarts
+#   with OOMKilled=true; the caps total ~9 GiB but steady state is ~3-4 GiB.
 #
 # Upgrade: change the image tag on every frappe-hr service and redeploy. create-site
 # then runs `bench migrate` on the existing site instead of creating one.
@@ -16,6 +20,7 @@
 services:
   db:
     image: mariadb:11.8
+    mem_limit: 1536m
     restart: unless-stopped
     command:
       - --character-set-server=utf8mb4
@@ -35,6 +40,7 @@ services:
 
   redis-cache:
     image: redis:6.2-alpine
+    mem_limit: 384m
     restart: unless-stopped
     volumes:
       - redis-cache-data:/data
@@ -46,6 +52,7 @@ services:
 
   redis-queue:
     image: redis:6.2-alpine
+    mem_limit: 256m
     restart: unless-stopped
     volumes:
       - redis-queue-data:/data
@@ -57,6 +64,7 @@ services:
 
   configurator:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 512m
     restart: 'no'
     exclude_from_hc: true
     depends_on:
@@ -90,6 +98,7 @@ services:
 
   create-site:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 2g
     restart: 'no'
     exclude_from_hc: true
     depends_on:
@@ -126,6 +135,7 @@ services:
 
   backend:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 1536m
     restart: unless-stopped
     depends_on:
       create-site:
@@ -142,6 +152,7 @@ services:
 
   websocket:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 384m
     restart: unless-stopped
     depends_on:
       create-site:
@@ -162,6 +173,7 @@ services:
 
   frontend:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 256m
     restart: unless-stopped
     depends_on:
       backend:
@@ -194,6 +206,7 @@ services:
 
   queue-short:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 768m
     restart: unless-stopped
     depends_on:
       create-site:
@@ -205,6 +218,7 @@ services:
 
   queue-long:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 1g
     restart: unless-stopped
     depends_on:
       create-site:
@@ -216,6 +230,7 @@ services:
 
   scheduler:
     image: ghcr.io/gasmsyteacher/frappe-hr:erpnext-v16.34.2-hrms-v16.18.1
+    mem_limit: 384m
     restart: unless-stopped
     depends_on:
       create-site:
