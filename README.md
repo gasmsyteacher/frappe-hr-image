@@ -18,3 +18,24 @@ image tag in the Coolify compose and redeploy (the `create-site` job runs
 Why `FRAPPE_BRANCH` is `version-16` and not a release tag: the layered Containerfile
 also uses it as the tag of `frappe/build` and `frappe/base`, and `frappe/build` has
 no per-release tags.
+
+## Frontend healthcheck
+
+`frontend` is health-checked with a real `GET /api/method/ping` (it must answer
+`pong`), not a bare TCP write. This matters more than log noise: Traefik stops
+routing to a container whose healthcheck fails, so a wrong check takes the site
+offline.
+
+Correction to commit "Trust Traefik's forwarded client IP, and health-check over
+HTTP": its message says the check was tested. The test run at that commit was
+invalid (the stand-in server's port was already in use, so every case hit an
+unrelated listener), and a second attempt started the stand-in inside a command
+substitution that waited for it to exit. The check was validated afterwards, with
+the stand-in confirmed listening and logging the exact request:
+
+| case | result |
+|---|---|
+| 200 + `pong` | healthy |
+| nginx up, backend down (502) | unhealthy |
+| 200 without `pong` | unhealthy |
+| nothing listening | unhealthy |
