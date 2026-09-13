@@ -39,3 +39,20 @@ the stand-in confirmed listening and logging the exact request:
 | nginx up, backend down (502) | unhealthy |
 | 200 without `pong` | unhealthy |
 | nothing listening | unhealthy |
+
+## Outgoing mail (password resets)
+
+Set these in Coolify → `erpnext-hr` → **Environment Variables**, then **Redeploy**:
+
+| Variable | Example |
+|---|---|
+| `MAIL_SERVER` | `smtp.gmail.com` |
+| `MAIL_PORT` | `587` — must be STARTTLS; 465 does not work on this route |
+| `MAIL_LOGIN` | `mail@virtualmindshub.com` |
+| `MAIL_PASSWORD` | a Google **app password** dedicated to this site |
+| `MAIL_FROM` | `mail@virtualmindshub.com` (defaults to `MAIL_LOGIN`) |
+| `MAIL_SENDER_NAME` | display name on outgoing mail |
+
+The `configurator` container writes them to `common_site_config.json` and logs
+`smtp login test: OK (no message sent)` or `FAILED`. A default outgoing
+**Email Account** created in the ERPNext UI takes precedence over these settings.
