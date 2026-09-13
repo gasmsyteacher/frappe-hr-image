@@ -195,8 +195,11 @@ services:
       # a fixed site name, not $host: requests arriving with any other Host
       # (internal probes, a second domain) still reach the one site
       - FRAPPE_SITE_NAME_HEADER=hr.virtualmindshub.app
-      # Traefik reaches the container from Coolify's docker network
-      - UPSTREAM_REAL_IP_ADDRESS=10.0.0.0/8
+      # Trust Traefik's X-Forwarded-For, or every visitor is recorded as Traefik.
+      # Traefik reaches this container at 172.26.0.11 on server2 -- Docker's default
+      # address pools are 172.16.0.0/12. (10.0.0.0/8 was a wrong guess: all traffic
+      # then logged as 172.26.0.11 and Frappe saw one IP for every user.)
+      - UPSTREAM_REAL_IP_ADDRESS=172.16.0.0/12
       - UPSTREAM_REAL_IP_HEADER=X-Forwarded-For
       - UPSTREAM_REAL_IP_RECURSIVE=off
       - PROXY_READ_TIMEOUT=120
@@ -205,7 +208,9 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8080"]
+      # a real HTTP request: a bare TCP write logs `"" 400` in nginx every interval,
+      # and pong proves nginx -> gunicorn -> the site, not just an open port
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/method/ping HTTP/1.0\r\nHost: hr.virtualmindshub.app\r\n\r\n' >&3 && grep -q pong <&3"]
       interval: 15s
       timeout: 5s
       retries: 5
